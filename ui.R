@@ -1,7 +1,7 @@
 library(shiny)
 # Define UI for application that plots random distributions 
 shinyUI(pageWithSidebar(
-  headerPanel("SABR calibration on Shiny"),
+  headerPanel("SABRnu calibration on Shiny"),
   #a('https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png', href='https://github.com/timelyportfolio/rCharts_nvd3_perf'),
   sidebarPanel(
     numericInput("forward", "Forward:", 22, min=1, max=100, step=1),
@@ -29,23 +29,23 @@ shinyUI(pageWithSidebar(
   mainPanel(
     tabsetPanel(
       tabPanel("Main", 
-        h3("Implied volatility smile(market and SABR model)"),
+        h3("Option prices (market and SABR model)"),
         plotOutput("distPlot"),
-        h3("Calibrated parameters via market IVs"),
+        h3("Calibrated parameters via market pricess"),
         verbatimTextOutput("summary")
       ),
       tabPanel("About",
         p('This application demonstrates to what extent',
-         a("SABR model", href="http://en.wikipedia.org/wiki/SABR_volatility_model", target="_blank"),
-         'can fit the market IV structures.'),
+         a("SABRnu model", href="http://en.wikipedia.org/wiki/SABR_volatility_model", target="_blank"),
+         'can fit the market prices.'),
         br(),
         strong('Code'),
-        p('Souce code for this application at',
-          a('GitHub', href='https://github.com/teramonagi/SABRCalibrationOnShiny', target="_blank")),
+        p('Source code for this application at',
+          a('GitHub', href='https://github.com/vidalalcala/SABRCalibrationOnShiny', target="_blank")),
         p('If you want to run this code on your computer, run the code below:',
           br(),
           code('library(shiny)'),br(),
-          code('runGitHub("SABRCalibrationOnShiny","teramonagi")')
+          code('runGitHub("SABRCalibrationOnShiny","vidalalcala")')
         ),br(),
         strong('References'),
         p(HTML('<ul>'),

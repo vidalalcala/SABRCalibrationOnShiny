@@ -1,34 +1,39 @@
 # CONSTANT
 EPS <- 10^(-8)
 
-# sub function for SABR BS-IV
-.x <- function(z, r){log((sqrt(1-2*r*z+z^2)+z-r)/(1-r))}
-.z <- function(f, K, a, b, nu){nu/a*(f*K)^(0.5*(1-b))*log(f/K)}
+# sub functions for SABR \nu expansion
 
-# variable transformation function
-.t1  <- function(x){1/(1+exp(x))}
-.t2  <- function(x){2/(1+exp(x)) -1}
+.N <- function(x){pnorm(x)}
+.N1 <- function(x){dnorm(x)}
+.N2 <- function(x){-x*dnorm(x)}
+.N3 <- function(x){(x^2-1)*dnorm(x)}
+.N4 <- function(x){(-x^3+3*x)*dnorm(x)}
 
-# Black-Scholes IV apporoximation formula by Hagan(2002)
-SABR.BSIV <- function(t, f, K, a, b, r, n)
-{
-  z <- .z(f, K, a, b, n)
-  x <- .x(z, r)
-  numerator   <- 1 + ((1-b)^2/24*a^2/(f*K)^(1-b) + 0.25*r*b*n*a/(f*K)^(0.5*(1-b)) + (2-3*r^2)*n^2/24)*t
-  denominator <- x*(f*K)^(0.5*(1-b))*(1 + (1-b)^2/24*(log(f/K))^2 + (1-b)^4/1920*(log(f/K))^4)
-  ifelse(abs((f-K)/f) < EPS, a*numerator/f^(1-b), z*a*numerator/denominator)
+SABR.Black <- function(tau, f, K, a){
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  f*.N(y/sqrt(tau) + a*sqrt(tau))-K*(.N(y/sqrt(tau)))
+} 
+
+SABR.W1 <- function(tau, f, K, a, rho){
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  -0.5*rho*a*K*tau*(.N2(y/sqrt(tau)))
 }
 
-# Parameter calibration function for SABR
+# Expansion with error O(nu^2)
+SABR.W <- function(tau, f, K, nu, a, rho){
+  SABR.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho) 
+}
+
+# Parameter calibration function for SABRnu
 SABR.calibration <- function(t, f, K, iv)
 {
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
-  objective <- function(x){sum( (iv - SABR.BSIV(t, f, K, exp(x[1]), .t1(x[2]), .t2(x[3]), exp(x[4])))^2) }
-  x <- nlm(objective, c(0.1, 0.5, 0.0, 0.1))
+  objective <- function(x){sum( (SABR.Black(tau,f,K,iv) - SABR.W(tau, f, K, x[1], x[2], x[3]))^2 )}
+  x <- nlm(objective, c(0.0, 0.10, 0.0))
   # return the optimized parameters
   parameter <- x$estimate
-  parameter <- c(exp(parameter[1]), .t1(parameter[2]), .t2(parameter[3]), exp(parameter[4]))
-  names(parameter) <- c("Alpha", "Beta", "Rho", "Nu")
+  names(parameter) <- c("nu", "alpha", "rho")
   parameter
 }
+

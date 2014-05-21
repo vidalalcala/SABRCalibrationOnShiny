@@ -5,11 +5,11 @@ source("SABR.R")
 shinyServer(function(input, output) {
   
   output$distPlot <- renderPlot({
-    x <- calculateIV()
-    print(ggplot(data=x$data, aes(x=Strike, y=IV, colour=Tag))
+    x <- calculateW()
+    print(ggplot(data=x$data, aes(x=Strike, y=W, colour=Tag))
           + geom_point(size=4)+geom_line(size=1) + theme_grey(base_size=24))
   })
-  calculateIV <- reactive({
+  calculateW <- reactive({
     forward  <- input$forward
     maturity <- input$maturity
     x <- input$marketData
@@ -18,19 +18,19 @@ shinyServer(function(input, output) {
     strike    <- x[,1]
     iv.market <- x[,2]
     SABR.parameter <- SABR.calibration(maturity, forward, strike, iv.market)
-    iv.model <- SABR.BSIV(
-      maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3], SABR.parameter[4])
+    W.model <- SABR.W(
+      maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3])
     #
     list(
       parameter=SABR.parameter,
       data=rbind(
-        data.frame(Strike=strike, IV=iv.model,  Tag="SABR"),
-        data.frame(Strike=strike, IV=iv.market, Tag="Market")
+        data.frame(Strike=strike, W=W.model,  Tag="SABRnu"),
+        data.frame(Strike=strike, W=SABR.Black(maturity,forward,strike,iv.market), Tag="Market")
       )
     )
   })
   output$summary <- renderPrint({
-    x <- calculateIV()
+    x <- calculateW()
     print(x$parameter)
   })
 })
