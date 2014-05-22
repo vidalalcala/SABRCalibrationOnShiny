@@ -31,7 +31,7 @@ shinyUI(pageWithSidebar(
       tabPanel("Main", 
         h3("Option prices (market and SABR model)"),
         plotOutput("distPlot"),
-        h3("Calibrated parameters via market pricess"),
+        h3("Calibrated parameters via market prices"),
         verbatimTextOutput("summary")
       ),
       tabPanel("About",

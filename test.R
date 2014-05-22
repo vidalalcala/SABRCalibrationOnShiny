@@ -13,7 +13,7 @@ test_that("SBARnu model test", {
   W.calibrated <- SABR.W(tau, f, k, params[1], params[2], params[3])
   W.market <- SABR.Black(tau,f,k,iv)
   # check wether initial model can produce market IV or not.
-  for(i in length(k)){expect_equal(W.model[i],      W.market[i], tolerance=0.01*V.market[i])}
+  for(i in length(k)){expect_equal(W.model[i],      W.market[i], tolerance=0.001*V.market[i])}
   # check wether calibrated parameter can produce market IV or not.
-  for(i in length(k)){expect_equal(W.calibrated[i], W.market[i], tolerance=0.01*V.market[i])}
+  for(i in length(k)){expect_equal(W.calibrated[i], W.market[i], tolerance=0.001*V.market[i])}
 })
