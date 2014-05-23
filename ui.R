@@ -29,7 +29,7 @@ shinyUI(pageWithSidebar(
   mainPanel(
     tabsetPanel(
       tabPanel("Main", 
-        h3("Option prices (market and SABR model)"),
+        h3("Implied volatility (market and SABR model)"),
         plotOutput("distPlot"),
         h3("Calibrated parameters via market prices"),
         verbatimTextOutput("summary")
