@@ -39,7 +39,7 @@ SABR.Black <- function(tau, f, K, a){
 
 SABR.W1 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
-  return(-0.5*rho*a*K*tau*(.N2(y/sqrt(tau))))
+  return(0.5*rho*a*K*tau*(.N2(y/sqrt(tau))))
 }
 
 # Expansion with error O(nu^2)
@@ -65,7 +65,7 @@ SABR.calibration <- function(tau, f, K, iv)
   # variables are transformed because of satisfing the constraint conditions
   
   objective <- function(x){return(sum( ( iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) )}
-  x <- optim(c(log(0.001), log(0.20), .t2inv(-0.05)), objective,control = list( "maxit" = 10000) )
+  x <- optim(c(log(0.10), log(0.20), .t2inv(-0.05)), objective,control = list( "maxit" = 10000) )
 
   # return the optimized parameters
   parameter <- x$par
