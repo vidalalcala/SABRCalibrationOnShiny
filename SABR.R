@@ -5,7 +5,7 @@ EPS <- 10^(-8)
 d1 <- function(s,f,K,tau){(log(f/K)+0.5*s^2*tau)/(s*sqrt(tau))}
 d2 <- function(s,f,K,tau){(log(f/K)-0.5*s^2*tau)/(s*sqrt(tau))}
 C <- function(s,f,K,tau) {f*pnorm(d1(s,f,K,tau))-K*pnorm(d2(s,f,K,tau))}
-dC <- function(s,f,K,tau) {f*dnorm(d1(s,f,K,tau),0,1)*sqrt(tau)}
+dC <- function(s,f,K,tau) {K*dnorm(d2(s,f,K,tau),0,1)*sqrt(tau)}
 .ImpliedVolatility <- function( f , K, tau , CM , N, sigma0){
   # check price
   if (CM > f){
@@ -21,8 +21,8 @@ dC <- function(s,f,K,tau) {f*dnorm(d1(s,f,K,tau),0,1)*sqrt(tau)}
 
 
 # variable transformation function
-.t2  <- function(x){2.0/(1.0+exp(x)) - 1.0 }
-.t2inv <- function(r){ log( (1.0 - r)/( 1.0 + r) ) }
+.t2  <- function(x){1.0/(1.0+exp(x)) - 1.0 }
+.t2inv <- function(r){ log( - r/( 1.0 + r) ) }
 
 # sub functions for SABR \nu expansion
 
@@ -41,18 +41,30 @@ SABR.W1 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
   return(0.5*rho*a*K*tau*(.N2(y/sqrt(tau))))
 }
+SABR.W2 <- function(tau, f, K, a, rho){
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  result1 <- -(1/3) * a * (tau^(2) * .N2(y/sqrt(tau)))
+  result1 <- result1 + (1/3) * tau * y * .N2(y/sqrt(tau))
+  result1 <- result1 - (1/6) * tau^(3/2) * .N1(y/sqrt(tau))
+  result1 <- -0.5 * a * K * result1
+  result2 <- -(1/4) * a * (tau^(2) * .N4(y/sqrt(tau)))
+  result2 <- result2 + (1/4) * tau * y * .N4(y/sqrt(tau))
+  result2 <- result2 - (1/4) * tau^(3/2) * .N3(y/sqrt(tau))
+  result2 <- 0.5 * rho * rho * a * K * result2
+  return(result1 + result2)
+}
 
-# Expansion with error O(nu^2)
+# Expansion with error O(nu^3)
 SABR.W <- function(tau, f, K, nu, a, rho){
-  return(SABR.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho) )
+  return(SABR.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho) + nu*nu*SABR.W2(tau, f, K, a, rho) ) 
 }
 
 SABR.iv <- function(tau, f, K, nu, a, rho){
   Nquotes <-length(K)
-  W <- SABR.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho)
+  W <- SABR.W(tau, f, K, nu, a, rho)
   iv <- c()
   for (i in 1:Nquotes){
-    iv[i] <- .ImpliedVolatility( f , K[i], tau , W[i] , 5 , 0.50)
+    iv[i] <- .ImpliedVolatility( f , K[i], tau , W[i] , 100 , 0.30)
   }    
   return(iv)
 }
@@ -64,14 +76,13 @@ SABR.calibration <- function(tau, f, K, iv)
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
-  objective <- function(x){return(sum( ( iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) )}
-  x <- optim(c(log(0.10), log(0.20), .t2inv(-0.05)), objective,control = list( "maxit" = 10000) )
+  objective <- function(x){return(sum( ( SABR.Black(tau, f, K, iv) - SABR.W(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) )}
+  x <- optim(c(log(1.10), log(0.30), .t2inv(-0.30)), objective ,list(maxit = 1000))
 
   # return the optimized parameters
   parameter <- x$par
   
   parameter <- c(exp(parameter[1]),exp(parameter[2]),.t2(parameter[3]))
-  cat("\n <optim> code: ", x$convergence)
   names(parameter) <- c("nu", "alpha", "rho")
   return(parameter)
 }
