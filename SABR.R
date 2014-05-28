@@ -1,6 +1,12 @@
 # CONSTANT
 EPS <- 10^(-8)
 
+# sub function for SABR BS-IV
+.x <- function(z, r){
+  return(log((sqrt(1-2*r*z+z^2)+z-r)/(1-r)))
+}
+.z <- function(f, K, a, nu){(nu/a)*log(f/K)}
+
 #implied volatility
 d1 <- function(s,f,K,tau){(log(f/K)+0.5*s^2*tau)/(s*sqrt(tau))}
 d2 <- function(s,f,K,tau){(log(f/K)-0.5*s^2*tau)/(s*sqrt(tau))}
@@ -54,6 +60,16 @@ SABR.W2 <- function(tau, f, K, a, rho){
   return(result1 + result2)
 }
 
+# Black-Scholes IV apporoximation formula by Hagan(2002)
+SABR.HaganIV <- function(t, f, K, a, b, r, n)
+{
+  z <- .z(f, K, a, n)
+  x <- .x(z, r)
+  numerator   <- 1 + ((1-b)^2/24*a^2/(f*K)^(1-b) + 0.25*r*b*n*a/(f*K)^(0.5*(1-b)) + (2-3*r^2)*n^2/24)*t
+  denominator <- x*(f*K)^(0.5*(1-b))*(1 + (1-b)^2/24*(log(f/K))^2 + (1-b)^4/1920*(log(f/K))^4)
+  ifelse(abs((f-K)/f) < EPS, a*numerator/f^(1-b), z*a*numerator/denominator)
+}
+
 # Expansion with error O(nu^3)
 SABR.W <- function(tau, f, K, nu, a, rho){
   return(SABR.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho) + nu*nu*SABR.W2(tau, f, K, a, rho) ) 
@@ -76,8 +92,8 @@ SABR.calibration <- function(tau, f, K, iv)
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
-  objective <- function(x){return(sum( ( SABR.Black(tau, f, K, iv) - SABR.W(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) )}
-  x <- optim(c(log(1.10), log(0.30), .t2inv(-0.30)), objective ,list(maxit = 1000))
+  objective <- function(x){return(sum( iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) }
+  x <- optim(c(log(1.17), log(0.30), .t2inv(-0.30)), objective ,list(maxit = 1000))
 
   # return the optimized parameters
   parameter <- x$par

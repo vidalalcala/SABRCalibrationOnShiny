@@ -20,12 +20,15 @@ shinyServer(function(input, output) {
     SABR.parameter <- SABR.calibration(maturity, forward, strike, iv.market)
     IV.model <- SABR.iv(
       maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3])
+    IV.Hagan <- SABR.HaganIV(
+      maturity, forward, strike, SABR.parameter[2], 1.0 ,  SABR.parameter[3], SABR.parameter[1])
     #
     list(
       parameter=SABR.parameter,
       data=rbind(
         data.frame(Strike=strike, IV=IV.model,  Tag="SABRnu"),
-        data.frame(Strike=strike, IV=iv.market, Tag="Market")
+        data.frame(Strike=strike, IV=iv.market, Tag="Market"),
+        data.frame(Strike=strike, IV=IV.Hagan, Tag="Hagan")
       )
     )
   })
