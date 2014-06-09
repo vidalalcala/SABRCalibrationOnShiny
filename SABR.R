@@ -5,6 +5,11 @@ EPS <- 10^(-8)
 .x <- function(z, r){
   return(log((sqrt(1-2*r*z+z^2)+z-r)/(1-r)))
 }
+
+.dx <- function(z, r){
+  return( ( 1.0 + (z-r)/(2*sqrt(1-2*r*z+z^2)) )/(sqrt(1-2*r*z+z^2)+z-r) )
+}
+
 .z <- function(f, K, a, nu){(nu/a)*log(f/K)}
 
 #implied volatility
@@ -70,6 +75,13 @@ SABR.HaganIV <- function(t, f, K, a, b, r, n)
   ifelse(abs((f-K)/f) < EPS, a*numerator/f^(1-b), z*a*numerator/denominator)
 }
 
+SABR.HaganDelta <- function(t, f, K, a, b, r, n)
+{ result <- SABR.HaganIV(t, f + EPS , K, a, b, r, n)
+  result <- result - SABR.HaganIV(t, f, K, a, b, r, n)
+  result <- result/EPS
+  return(result)
+}
+
 # Expansion with error O(nu^3)
 SABR.W <- function(tau, f, K, nu, a, rho){
   return(SABR.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho) + nu*nu*SABR.W2(tau, f, K, a, rho) ) 
@@ -92,14 +104,17 @@ SABR.calibration <- function(tau, f, K, iv)
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
-  objective <- function(x){return(sum( iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) }
-  x <- optim(c(log(1.17), log(0.30), .t2inv(-0.30)), objective ,list(maxit = 1000))
+  #objective <- function(x){return(sum( iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) }
+  objective <- function(x){return(sum( ( iv - SABR.HaganIV(tau, f, K, exp(x[2]), exp(x[4]), .t2(x[3]) , exp(x[1])  ) )^2 ) ) }
+  
+  x <- optim(c(log(1.17), log(0.30), .t2inv(-0.30),  0.00 ), objective, list(maxit = 1000))
 
   # return the optimized parameters
   parameter <- x$par
   
-  parameter <- c(exp(parameter[1]),exp(parameter[2]),.t2(parameter[3]))
-  names(parameter) <- c("nu", "alpha", "rho")
+  
+  parameter <- c(exp(parameter[1]),exp(parameter[2]),.t2(parameter[3]), exp(parameter[4]) )
+  names(parameter) <- c("nu", "alpha", "rho" , "beta")
   return(parameter)
 }
 

@@ -31,6 +31,8 @@ shinyUI(pageWithSidebar(
       tabPanel("Main", 
         h3("Implied volatility (market and SABR model)"),
         plotOutput("distPlot"),
+        h3("Delta hedge (SABR model)"),
+        plotOutput("deltaPlot"),
         h3("Calibrated parameters via market prices"),
         verbatimTextOutput("summary")
       ),
