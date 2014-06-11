@@ -7,7 +7,6 @@ shinyUI(pageWithSidebar(
     numericInput("forward", "Forward:", 93.5, min=0.0, max=1000, step=0.01),
     numericInput("maturity", "Maturity(year):", 1/12, min=0.0, max=4, step=0.0001),
     numericInput("r", "Risk free continuous rate:", 0.0015, min=0.0, max=1.00, step=0.0001),
-    #numericInput("beta", "SABR beta:", 1.0, min=0.0, max=2.0, step=0.01),
     numericInput("minVol", "Minimum volume:", 20, min=0, max=1000000, step=1),
     numericInput("maxVol", "Maximum volume:", 10000, min=0, max=10000000, step=1)
   ),
@@ -15,21 +14,21 @@ shinyUI(pageWithSidebar(
     tabsetPanel(
       tabPanel("Hagan", 
         h3("Implied volatility (market and SABR model)"),
-        plotOutput("distPlot"),
+        plotOutput("distPlotHagan"),
         h3("Calibrated parameters via market prices"),
-        verbatimTextOutput("summary"),
+        verbatimTextOutput("summaryHagan"),
         h3("Delta hedge (SABR model)"),
-        plotOutput("deltaPlot"),
-        tableOutput("deltaTable")
+        plotOutput("deltaPlotHagan"),
+        tableOutput("deltaTableHagan")
       ),
       tabPanel("Nu expansion", 
                h3("Implied volatility (market and nuSABR model)"),
-               plotOutput("distPlotNu"),
+               plotOutput("distPlotSABR"),
                h3("Calibrated parameters via market prices"),
-               verbatimTextOutput("summaryNu"),
+               verbatimTextOutput("summarySABR"),
                h3("Delta hedge (nuSABR model)"),
-               plotOutput("deltaNuPlot"),
-               tableOutput("deltaNuTable")
+               plotOutput("deltaPlotSABR"),
+               tableOutput("deltaTableSABR")
       ),
       tabPanel("About",
         p('This application demonstrates to what extent',
