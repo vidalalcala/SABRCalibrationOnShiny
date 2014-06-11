@@ -76,8 +76,8 @@ SABR.HaganIV <- function(t, f, K, a, b, r, n)
 }
 
 SABR.HaganDelta <- function(t, f, K, a, b, r, n)
-{ result <- SABR.HaganIV(t, f + EPS , K, a, b, r, n)
-  result <- result - SABR.HaganIV(t, f, K, a, b, r, n)
+{ result <- SABR.Black(t, f + EPS, K, SABR.HaganIV(t, f + EPS , K, a, b, r, n))
+  result <- result - SABR.Black(t, f , K, SABR.HaganIV(t, f , K, a, b, r, n))
   result <- result/EPS
   return(result)
 }
@@ -98,7 +98,7 @@ SABR.iv <- function(tau, f, K, nu, a, rho){
 }
 
 
-# Parameter calibration function for SABRnu
+# Parameter calibration function for SABR
 SABR.calibration <- function(tau, f, K, iv)
 {
   # objective function for optimization
@@ -116,5 +116,34 @@ SABR.calibration <- function(tau, f, K, iv)
   parameter <- c(exp(parameter[1]),exp(parameter[2]),.t2(parameter[3]), exp(parameter[4]) )
   names(parameter) <- c("nu", "alpha", "rho" , "beta")
   return(parameter)
+}
+
+# Parameter calibration function for SABR
+nuSABR.calibration <- function(tau, f, K, iv)
+{
+  # objective function for optimization
+  # variables are transformed because of satisfing the constraint conditions
+  
+  objective <- function(x){return(sum( iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) }
+  x <- optim(c(log(1.17), log(0.30), .t2inv(-0.30)), objective, list(maxit = 1000))
+  
+  # return the optimized parameters
+  parameter <- x$par
+  
+  
+  parameter <- c(exp(parameter[1]),exp(parameter[2]),.t2(parameter[3]))
+  names(parameter) <- c("nu", "alpha", "rho" )
+  return(parameter)
+}
+
+
+# clean smile data
+CleanSmile <- function(smile, minVol , maxVol)
+{ 
+  smile <- smile[(smile$Vol>minVol & smile$Vol<maxVol),]
+  # collapse rows with same strike and weight according to volume
+  smileTable <- data.table(smile)
+  setkey(smileTable,Strike)
+  smileTable <- smileTable[, list(Last=sum(Last*Vol)/sum(Vol), Bid=sum(Bid*Vol)/sum(Vol), Ask=sum(Ask*Vol)/sum(Vol), Mid=sum(0.5*(Ask+Bid)*Vol)/sum(Vol), Vol=sum(Vol)), by=Strike]  
 }
 

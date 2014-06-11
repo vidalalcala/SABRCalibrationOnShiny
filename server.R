@@ -1,6 +1,11 @@
 library(shiny)
 library(ggplot2)
+library(data.table)
 source("SABR.R")
+
+# START code that runs once
+optionQuotes <- read.csv("data/smile.csv")
+# END 
 
 shinyServer(function(input, output) {
   
@@ -11,17 +16,34 @@ shinyServer(function(input, output) {
   })
   output$deltaPlot <- renderPlot({
     x <- calculateIV()
-    print(ggplot(data=x$dataHedge, aes(x=Strike, y=delta, colour=Tag))
+    print(ggplot(data=x$dataHedge, aes(x=Strike, y=delta))
           + geom_point(size=4)+geom_line(size=1) + theme_grey(base_size=24))
   })
+  
+  output$deltaTable <- renderTable({
+    x <-calculateIV()
+    x$dataHedge
+  })
+  
   calculateIV <- reactive({
     forward  <- input$forward
     maturity <- input$maturity
-    x <- input$marketData
-    # convert string(ex:"12,0.346\n15,0.28\n17,0.243...") to data.frame
-    x <- t(sapply(unlist(strsplit(x, "\n")), function(x) as.numeric(unlist(strsplit(x, ",")))))
-    strike    <- x[,1]
-    iv.market <- x[,2]
+    r <- input$r
+    #beta <- input$beta
+    minVol <- input$minVol
+    maxVol <- input$maxVol
+    
+    optionQuotesClean <- CleanSmile(optionQuotes, minVol, maxVol )
+    strike <- optionQuotesClean$Strike
+    
+    #Calculate implied vols
+    Nquotes <-length(strike)
+    iv.market <- c()
+    sigmaStart <- 0.60
+    for (i in 1:Nquotes){
+      iv.market[i] <- .ImpliedVolatility( forward , strike[i], maturity , exp(r*maturity)*optionQuotesClean$Mid[i] , 1 , sigmaStart)
+    }
+    print(iv.market)
     SABR.parameter <- SABR.calibration(maturity, forward, strike, iv.market)
     IV.model <- SABR.iv(
       maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3])
@@ -31,15 +53,13 @@ shinyServer(function(input, output) {
       maturity, forward, strike, SABR.parameter[2], SABR.parameter[4] ,  SABR.parameter[3], SABR.parameter[1])
     #
     list(
-      parameter=SABR.parameter , greeks=delta.Hagan ,
+      parameter=SABR.parameter ,
       data=rbind(
-        data.frame(Strike=strike, IV=IV.model,  Tag="SABRnu"),
+        #data.frame(Strike=strike, IV=IV.model,  Tag="SABRnu"),
         data.frame(Strike=strike, IV=iv.market, Tag="Market"),
         data.frame(Strike=strike, IV=IV.Hagan, Tag="Hagan")
       ),
-      dataHedge=rbind(
-        data.frame(Strike=strike, delta=delta.Hagan, Tag="delta Hagan")
-      )
+      dataHedge=data.frame(Strike=strike, delta=delta.Hagan)
     )
   })
   output$summary <- renderPrint({

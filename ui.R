@@ -1,40 +1,35 @@
 library(shiny)
 # Define UI for application that plots random distributions 
 shinyUI(pageWithSidebar(
-  headerPanel("SABRnu calibration on Shiny"),
+  headerPanel("SABR calibration on Shiny"),
   #a('https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png', href='https://github.com/timelyportfolio/rCharts_nvd3_perf'),
   sidebarPanel(
-    numericInput("forward", "Forward:", 22, min=1, max=100, step=1),
-    numericInput("maturity", "Maturity(year):", 1, min=0.5, max=20, step=0.5),
-    h5("Comma separated text(Strike, Market IV(log normal)"),
-    tags$textarea(id="marketData", rows=20, cols=70, 
-      "12,0.346
-15,0.28
-17,0.243
-19.5,0.208
-20,0.203
-22,0.192
-22.5,0.192
-24.5,0.201
-25,0.205
-27,0.223
-27.5,0.228
-29.5,0.247
-30,0.252
-32,0.271
-32.5,0.275
-34.5,0.293
-37,0.313")
+    numericInput("forward", "Forward:", 93.5, min=0.0, max=1000, step=0.01),
+    numericInput("maturity", "Maturity(year):", 1/12, min=0.0, max=4, step=0.0001),
+    numericInput("r", "Risk free continuous rate:", 0.0015, min=0.0, max=1.00, step=0.0001),
+    #numericInput("beta", "SABR beta:", 1.0, min=0.0, max=2.0, step=0.01),
+    numericInput("minVol", "Minimum volume:", 20, min=0, max=1000000, step=1),
+    numericInput("maxVol", "Maximum volume:", 10000, min=0, max=10000000, step=1)
   ),
   mainPanel(
     tabsetPanel(
-      tabPanel("Main", 
+      tabPanel("Hagan", 
         h3("Implied volatility (market and SABR model)"),
         plotOutput("distPlot"),
+        h3("Calibrated parameters via market prices"),
+        verbatimTextOutput("summary"),
         h3("Delta hedge (SABR model)"),
         plotOutput("deltaPlot"),
-        h3("Calibrated parameters via market prices"),
-        verbatimTextOutput("summary")
+        tableOutput("deltaTable")
+      ),
+      tabPanel("Nu expansion", 
+               h3("Implied volatility (market and nuSABR model)"),
+               plotOutput("distPlotNu"),
+               h3("Calibrated parameters via market prices"),
+               verbatimTextOutput("summaryNu"),
+               h3("Delta hedge (nuSABR model)"),
+               plotOutput("deltaNuPlot"),
+               tableOutput("deltaNuTable")
       ),
       tabPanel("About",
         p('This application demonstrates to what extent',
