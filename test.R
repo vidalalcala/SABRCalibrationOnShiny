@@ -11,3 +11,7 @@ optionQuotesClean <- CleanSmile(optionQuotes, minVol, maxVol )
 strike <- optionQuotesClean$Strike
 price <- optionQuotesClean$Mid
 plot(strike,price, type="l" )
+
+plot.new()
+frame()
+

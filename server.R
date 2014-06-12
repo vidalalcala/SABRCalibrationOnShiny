@@ -35,6 +35,12 @@ shinyServer(function(input, output) {
     print(ggplot(data=x$dataPlotSABR, aes(x=Strike, y=IV, colour=Tag))
           + geom_point(size=4)+geom_line(size=1) + theme_grey(base_size=24))
   })
+  output$pricesPlotSABR <- renderPlot({
+    x <- calculateIV()
+    print(ggplot(data=x$dataPlotSABRPrices, aes(x=Strike, y=Price, colour=Tag))
+          + geom_point(size=4)+geom_line(size=1) + theme_grey(base_size=24))
+  })
+  
   output$deltaPlotSABR <- renderPlot({
     x <- calculateIV()
     print(ggplot(data=x$dataHedgeSABR, aes(x=Strike, y=delta))
@@ -63,16 +69,23 @@ shinyServer(function(input, output) {
     strike <- optionQuotesClean$Strike
     price <- optionQuotesClean$Mid
     
+    parameter0 <- data.frame( nu=input$nu0, alpha=input$alpha0, rho=input$rho0, beta=input$beta0 )
+    
     #Calculate implied vols
     Nquotes <-length(strike)
     iv.market <- c()
-    sigmaStart <- 0.60
+    sigmaStart <- 0.50
     for (i in 1:Nquotes){
-      iv.market[i] <- .ImpliedVolatility( forward , strike[i], maturity , exp(r*maturity)*optionQuotesClean$Mid[i] , 1 , sigmaStart)
+      iv.market[i] <- .ImpliedVolatilityNewton( forward , strike[i], maturity , exp(r*maturity)*optionQuotesClean$Mid[i] , 10 , sigmaStart)
     }
     
-    Hagan.parameter <- Hagan.calibration(maturity, forward, strike, iv.market)
-    SABR.parameter <- SABR.calibration(maturity, forward, strike, price,r)
+    print(iv.market)
+    print(exp(r*maturity)*optionQuotesClean$Mid)
+    print(strike)
+    
+    
+    Hagan.parameter <- Hagan.calibration(maturity, forward, strike, iv.market, parameter0)
+    SABR.parameter <- SABR.calibration(maturity, forward, strike, price, r, parameter0)
     IV.Hagan <- Hagan.IV(
       maturity, forward, strike, Hagan.parameter[2], Hagan.parameter[4] ,  Hagan.parameter[3], Hagan.parameter[1])
     IV.SABR <- SABR.iv(
@@ -88,6 +101,10 @@ shinyServer(function(input, output) {
       dataPlotSABR=rbind(
         data.frame(Strike=strike, IV=iv.market, Tag="Market"),
         data.frame(Strike=strike, IV=IV.SABR, Tag="nuSABR")
+      ),
+      dataPlotSABRPrices=rbind(
+        data.frame(Strike=strike, Price=optionQuotesClean$Mid, Tag="Market"),
+        data.frame(Strike=strike, Price=exp(-r*maturity)*SABR.W(maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3]), Tag="nuSABR")
       ),
       dataPlotHagan=rbind(
         data.frame(Strike=strike, IV=iv.market, Tag="Market"),

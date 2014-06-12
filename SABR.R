@@ -17,18 +17,56 @@ d1 <- function(s,f,K,tau){(log(f/K)+0.5*s^2*tau)/(s*sqrt(tau))}
 d2 <- function(s,f,K,tau){(log(f/K)-0.5*s^2*tau)/(s*sqrt(tau))}
 C <- function(s,f,K,tau) {f*pnorm(d1(s,f,K,tau))-K*pnorm(d2(s,f,K,tau))}
 dC <- function(s,f,K,tau) {K*dnorm(d2(s,f,K,tau),0,1)*sqrt(tau)}
-.ImpliedVolatility <- function( f , K, tau , CM , N, sigma0){
+
+.ImpliedVolatilityNewton <- function( f , K, tau , CM , N, sigma0){
   # check price
   if (CM > f){
-    cat("<ImpliedVolatility> The call price is out of bounds")
+    cat("<ImpliedVolatilityNewton> The call price is out of bounds")
   }
   
   sigma <- sigma0;
   for (i in 1:N){
     sigma = sigma - (C(sigma,f,K,tau) - CM )/dC(sigma,f,K,tau);  
   }
-  return(sigma)
+  if(is.na(sigma)){
+    print("<impliedvol> Newton fails !")
+    sigma <- .ImpliedVolatilityBisection(f,K,tau,CM)
+    return(sigma)
+  }
+  else{
+    return(sigma)
+  }
 }
+
+.ImpliedVolatilityBisection <-
+  function(f, K, tau, CM){
+    sig <- 0.40
+    sig.up <- 1
+    sig.down <- 0.001
+    count <- 0
+    err <- C(sig,f,K,tau) - CM 
+    
+    ## repeat until error is sufficiently small or counter hits 1000
+    while(abs(err) > 0.001 && count<1000000){
+      if(err < 0){
+        sig.down <- sig
+        sig <- (sig.up + sig)/2
+      }else{
+        sig.up <- sig
+        sig <- (sig.down + sig)/2
+      }
+      err <- C(sig,f,K,tau) - CM
+      count <- count + 1
+    }
+    
+    ## return NA if counter hit 1000
+    if(count==1000000){
+      print("<impliedvol> Bisection Fails!")
+      return(sig)
+    }else{
+      return(sig)
+    }
+  }
 
 
 # variable transformation function
@@ -82,19 +120,19 @@ SABR.iv <- function(tau, f, K, nu, a, rho){
   W <- SABR.W(tau, f, K, nu, a, rho)
   iv <- c()
   for (i in 1:Nquotes){
-    iv[i] <- .ImpliedVolatility( f , K[i], tau , W[i] , 100 , 0.30)
+    iv[i] <- .ImpliedVolatilityNewton( f , K[i], tau , W[i] , 100 , 0.50)
   }    
   return(iv)
 }
 
 # Parameter calibration function for SABR
-SABR.calibration <- function(tau, f, K, price , r)
+SABR.calibration <- function(tau, f, K, price , r , parameter0)
 {
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
   objective <- function(x){return( (sum(price - exp(-r*tau)*SABR.W(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) ))^2 ) }
-  x <- optim(c(log(6.00), log(0.30), .t2inv(-0.10)), objective, list(maxit = 10000))
+  x <- optim(c(log(parameter0$nu), log(parameter0$alpha), .t2inv(parameter0$rho)), objective, list(maxit = 10000))
   
   # return the optimized parameters
   parameter <- x$par
@@ -124,15 +162,14 @@ Hagan.Delta <- function(t, f, K, a, b, r, n)
 }
 
 # Parameter calibration function for SABR
-Hagan.calibration <- function(tau, f, K, iv)
+Hagan.calibration <- function(tau, f, K, iv, parameter0)
 {
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
   #objective <- function(x){return(sum( iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) }
   objective <- function(x){return(sum( ( iv - Hagan.IV(tau, f, K, exp(x[2]), exp(x[4]), .t2(x[3]) , exp(x[1])  ) )^2 ) ) }
-  
-  x <- optim(c(log(1.17), log(0.30), .t2inv(-0.30),  0.00 ), objective, list(maxit = 1000))
+  x <- optim(c(log(parameter0$nu), log(parameter0$alpha), .t2inv(parameter0$rho),  log(parameter0$beta) ), objective, list(maxit = 1000))
   
   # return the optimized parameters
   parameter <- x$par
