@@ -76,16 +76,11 @@ shinyServer(function(input, output) {
     iv.market <- c()
     sigmaStart <- 0.50
     for (i in 1:Nquotes){
-      iv.market[i] <- .ImpliedVolatilityNewton( forward , strike[i], maturity , exp(r*maturity)*optionQuotesClean$Mid[i] , 10 , sigmaStart)
+      iv.market[i] <- .ImpliedVolatilityNewton( maturity, forward , strike[i], exp(r*maturity)*optionQuotesClean$Mid[i] , 10 , sigmaStart)
     }
     
-    print(iv.market)
-    print(exp(r*maturity)*optionQuotesClean$Mid)
-    print(strike)
-    
-    
     Hagan.parameter <- Hagan.calibration(maturity, forward, strike, iv.market, parameter0)
-    SABR.parameter <- SABR.calibration(maturity, forward, strike, price, r, parameter0)
+    SABR.parameter <- SABR.calibration(maturity, forward, strike, iv.market, r, parameter0)
     IV.Hagan <- Hagan.IV(
       maturity, forward, strike, Hagan.parameter[2], Hagan.parameter[4] ,  Hagan.parameter[3], Hagan.parameter[1])
     IV.SABR <- SABR.iv(

@@ -1,5 +1,8 @@
 # CONSTANT
 EPS <- 10^(-8)
+sigmaMax <- 1.0
+sigmaMin <- 0.001
+
 
 # sub function for SABR BS-IV
 .x <- function(z, r){
@@ -12,25 +15,45 @@ EPS <- 10^(-8)
 
 .z <- function(f, K, a, nu){(nu/a)*log(f/K)}
 
-#implied volatility
-d1 <- function(s,f,K,tau){(log(f/K)+0.5*s^2*tau)/(s*sqrt(tau))}
-d2 <- function(s,f,K,tau){(log(f/K)-0.5*s^2*tau)/(s*sqrt(tau))}
-C <- function(s,f,K,tau) {f*pnorm(d1(s,f,K,tau))-K*pnorm(d2(s,f,K,tau))}
-dC <- function(s,f,K,tau) {K*dnorm(d2(s,f,K,tau),0,1)*sqrt(tau)}
+# sub functions for SABR \nu expansion
 
-.ImpliedVolatilityNewton <- function( f , K, tau , CM , N, sigma0){
+.N <- function(x){pnorm(x)}
+.N1 <- function(x){dnorm(x)}
+.N2 <- function(x){-x*dnorm(x)}
+.N3 <- function(x){(x^2-1)*dnorm(x)}
+.N4 <- function(x){(-x^3+3*x)*dnorm(x)}
+
+#implied volatility
+
+.Black <- function(tau, f, K, a){
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  return(f*.N(y/sqrt(tau) + a*sqrt(tau))-K*(.N(y/sqrt(tau))))
+}
+.dBlack <- function(tau,f,K,a) {
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  K*.N1(y/sqrt(tau))*sqrt(tau)
+}
+
+.ImpliedVolatilityNewton <- function( tau, f, K, WMarket , N, sigma0){
   # check price
-  if (CM > f){
-    cat("<ImpliedVolatilityNewton> The call price is out of bounds")
+  if ( WMarket > f ){
+    cat("<ImpliedVolatilityNewton> The call price is out of no hedge bounds, strike =", K,"\n")
+    return(sigmaMax)
+  }
+  if ( WMarket < ifelse(f-K>0, f-K, 0) ){
+    cat("<ImpliedVolatilityNewton> The call price is out of no hedge bounds, strike =", K,"\n")
+    return(sigmaMin)
   }
   
   sigma <- sigma0;
   for (i in 1:N){
-    sigma = sigma - (C(sigma,f,K,tau) - CM )/dC(sigma,f,K,tau);  
+    sigma = sigma - (.Black(tau ,f ,K , sigma) - WMarket )/.dBlack(tau,f,K,sigma);  
   }
-  if(is.na(sigma)){
+  error <- abs(.Black( tau, f, K, sigma ) - WMarket)
+
+  if( is.na(sigma) || (error > 0.001) || (is.nan(error))){
     print("<impliedvol> Newton fails !")
-    sigma <- .ImpliedVolatilityBisection(f,K,tau,CM)
+    sigma <- .ImpliedVolatilityBisection(tau, f, K, WMarket)
     return(sigma)
   }
   else{
@@ -39,29 +62,33 @@ dC <- function(s,f,K,tau) {K*dnorm(d2(s,f,K,tau),0,1)*sqrt(tau)}
 }
 
 .ImpliedVolatilityBisection <-
-  function(f, K, tau, CM){
-    sig <- 0.40
-    sig.up <- 1
-    sig.down <- 0.001
+  function(tau, f, K, WM){
+    sig.up <- 1.0
+    sig.down <- 0.05
+    sig <- 0.5*(sig.down + sig.up)
+    if ( (.Black(tau,f,K,sig.down)-WM)*(.Black(tau,f,K,sig.up)-WM)>0){
+      cat("<bisection> same sign at end points with strike = ", K, "\n")
+      return(0.0)
+    }
     count <- 0
-    err <- C(sig,f,K,tau) - CM 
+    err <- .Black(tau,f,K,sig) - WM 
     
     ## repeat until error is sufficiently small or counter hits 1000
-    while(abs(err) > 0.001 && count<1000000){
-      if(err < 0){
-        sig.down <- sig
-        sig <- (sig.up + sig)/2
-      }else{
+    while(abs(err) > 0.001 && count<10000){
+      if((.Black(tau,f,K,sig.down)-WM)*(.Black(tau,f,K,sig)-WM)<0){
         sig.up <- sig
-        sig <- (sig.down + sig)/2
+        sig <- (sig.down + sig.up)/2
+      }else{
+        sig.down <- sig
+        sig <- (sig.down + sig.up)/2
       }
-      err <- C(sig,f,K,tau) - CM
+      err <- .Black(tau,f,K,sig) - WM
       count <- count + 1
     }
     
     ## return NA if counter hit 1000
-    if(count==1000000){
-      print("<impliedvol> Bisection Fails!")
+    if(count > 9998){
+      cat("<impliedvol> Bisection reaches 10000 iterations with strike ", K, "\n")
       return(sig)
     }else{
       return(sig)
@@ -72,19 +99,6 @@ dC <- function(s,f,K,tau) {K*dnorm(d2(s,f,K,tau),0,1)*sqrt(tau)}
 # variable transformation function
 .t2  <- function(x){1.0/(1.0+exp(x)) - 1.0 }
 .t2inv <- function(r){ log( - r/( 1.0 + r) ) }
-
-# sub functions for SABR \nu expansion
-
-.N <- function(x){pnorm(x)}
-.N1 <- function(x){dnorm(x)}
-.N2 <- function(x){-x*dnorm(x)}
-.N3 <- function(x){(x^2-1)*dnorm(x)}
-.N4 <- function(x){(-x^3+3*x)*dnorm(x)}
-
-.Black <- function(tau, f, K, a){
-  y <- (log(f/K)-0.5*a*a*tau)/a
-  return(f*.N(y/sqrt(tau) + a*sqrt(tau))-K*(.N(y/sqrt(tau))))
-} 
 
 SABR.W1 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
@@ -105,7 +119,7 @@ SABR.W2 <- function(tau, f, K, a, rho){
 
 # Expansion with error O(nu^3)
 SABR.W <- function(tau, f, K, nu, a, rho){
-  return(.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho) + nu*nu*SABR.W2(tau, f, K, a, rho)) 
+  return(.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho)  + nu*nu*SABR.W2(tau, f, K, a, rho)) 
 }
 
 SABR.Delta <- function(t, f, K, nu, a, rho)
@@ -120,19 +134,20 @@ SABR.iv <- function(tau, f, K, nu, a, rho){
   W <- SABR.W(tau, f, K, nu, a, rho)
   iv <- c()
   for (i in 1:Nquotes){
-    iv[i] <- .ImpliedVolatilityNewton( f , K[i], tau , W[i] , 100 , 0.50)
+    iv[i] <- .ImpliedVolatilityNewton(tau, f , K[i] , W[i] , 10 , 0.50)
+    #iv[i] <- .ImpliedVolatilityBisection(tau, f , K[i] , W[i])
   }    
   return(iv)
 }
 
 # Parameter calibration function for SABR
-SABR.calibration <- function(tau, f, K, price , r , parameter0)
+SABR.calibration <- function(tau, f, K, iv , r , parameter0)
 {
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
-  objective <- function(x){return( (sum(price - exp(-r*tau)*SABR.W(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) ))^2 ) }
-  x <- optim(c(log(parameter0$nu), log(parameter0$alpha), .t2inv(parameter0$rho)), objective, list(maxit = 10000))
+  objective <- function(x){return( (sum(iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) ))^2 ) }
+  x <- optim(c(log(parameter0$nu), log(parameter0$alpha), .t2inv(parameter0$rho)), objective, list(maxit = 100000))
   
   # return the optimized parameters
   parameter <- x$par
