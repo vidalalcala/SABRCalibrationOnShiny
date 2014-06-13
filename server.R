@@ -9,6 +9,7 @@ optionQuotes <- read.csv("data/smile.csv")
 
 shinyServer(function(input, output) {
   
+  # output definition
   output$distPlotHagan <- renderPlot({
     x <- calculateIV()
     print(ggplot(data=x$dataPlotHagan, aes(x=Strike, y=IV, colour=Tag))
@@ -57,39 +58,45 @@ shinyServer(function(input, output) {
     print(x$parameterSABR)
   })
   
+  # the function that calibrates parameters to data
   calculateIV <- reactive({
+    # read inputs
     forward  <- input$forward
     maturity <- input$maturity
     r <- input$r
-    #beta <- input$beta
     minVol <- input$minVol
     maxVol <- input$maxVol
-    
+    minSigma <- input$minSigma
+    maxSigma <- input$maxSigma
     optionQuotesClean <- CleanSmile(optionQuotes, minVol, maxVol )
     strike <- optionQuotesClean$Strike
     price <- optionQuotesClean$Mid
-    
     parameter0 <- data.frame( nu=input$nu0, alpha=input$alpha0, rho=input$rho0, beta=input$beta0 )
     
-    #Calculate implied vols
+    #Calculate market implied vols
     Nquotes <-length(strike)
     iv.market <- c()
-    sigmaStart <- 0.50
     for (i in 1:Nquotes){
-      iv.market[i] <- .ImpliedVolatilityNewton( maturity, forward , strike[i], exp(r*maturity)*optionQuotesClean$Mid[i] , 10 , sigmaStart)
+      iv.market[i] <- .ImpliedVolatilityNewton( maturity, forward , strike[i], exp(r*maturity)*optionQuotesClean$Mid[i] , 10 , parameter0$alpha, minSigma, maxSigma)
     }
     
+    # calibrate models
     Hagan.parameter <- Hagan.calibration(maturity, forward, strike, iv.market, parameter0)
     SABR.parameter <- SABR.calibration(maturity, forward, strike, iv.market, r, parameter0)
+    
+    # calculate model implied vol
     IV.Hagan <- Hagan.IV(
       maturity, forward, strike, Hagan.parameter[2], Hagan.parameter[4] ,  Hagan.parameter[3], Hagan.parameter[1])
     IV.SABR <- SABR.iv(
-      maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3])
+      maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3], minSigma, maxSigma)
+    
+    # calculate model hedge
     delta.Hagan <- Hagan.Delta(
       maturity, forward, strike, Hagan.parameter[2], Hagan.parameter[4] ,  Hagan.parameter[3], Hagan.parameter[1])
     delta.SABR <- exp(-r*maturity)*SABR.Delta(
       maturity, forward, strike, SABR.parameter[1], SABR.parameter[2],  SABR.parameter[3])
-    #
+    
+    # function output
     list(
       parameterSABR=SABR.parameter ,
       parameterHagan=Hagan.parameter ,

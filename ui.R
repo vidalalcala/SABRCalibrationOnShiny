@@ -12,7 +12,9 @@ shinyUI(pageWithSidebar(
     numericInput("nu0", "Initial nu:", 2.7 , min=0.0, max=1000.0, step=0.001),
     numericInput("alpha0", "Initial alpha:", 0.22 , min=0.0, max=100.0, step=0.001),
     numericInput("rho0", "Initial rho:", -0.12 , min=-1.0, max=0.0, step=0.001),
-    numericInput("beta0", "Initial beta:", 1.0 , min=0.0, max=2.0, step=0.001)
+    numericInput("beta0", "Initial beta:", 1.0 , min=0.0, max=2.0, step=0.001),
+    numericInput("minSigma", "Minimum volatility:", 0.001 , min=0.0, max=100.0, step=0.001),
+    numericInput("maxSigma", "Maximum volatility:", 1.0 , min=0.0, max=100.0, step=0.0001)
   ),
   mainPanel(
     tabsetPanel(
