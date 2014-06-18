@@ -14,7 +14,9 @@ shinyUI(pageWithSidebar(
     numericInput("rho0", "Initial rho:", -0.12 , min=-1.0, max=0.0, step=0.001),
     numericInput("beta0", "Initial beta:", 1.0 , min=0.0, max=2.0, step=0.001),
     numericInput("minSigma", "Minimum volatility:", 0.001 , min=0.0, max=100.0, step=0.001),
-    numericInput("maxSigma", "Maximum volatility:", 1.0 , min=0.0, max=100.0, step=0.0001)
+    numericInput("maxSigma", "Maximum volatility:", 1.0 , min=0.0, max=100.0, step=0.0001),
+    numericInput("h0", "Initial sigma (multifractal):", 0.30 , min=0.0, max=10.0, step=0.001),
+    numericInput("phi0", "Initial phi (multifractal):", 1/12 , min=0.0, max=10.0, step=0.001)
   ),
   mainPanel(
     tabsetPanel(
@@ -37,6 +39,17 @@ shinyUI(pageWithSidebar(
                h3("Delta hedge (nuSABR model)"),
                plotOutput("deltaPlotSABR"),
                tableOutput("deltaTableSABR")
+      ),
+      tabPanel("Multifractal expansion", 
+               h3("Implied volatility (market and multifractal model)"),
+               plotOutput("distPlotFractal"),
+               h3("Option prices (market and multifractal model)"),
+               plotOutput("pricesPlotFractal"),
+               h3("Calibrated parameters via market prices"),
+               verbatimTextOutput("summaryFractal"),
+               h3("Delta hedge (multifractal model)"),
+               plotOutput("deltaPlotFractal"),
+               tableOutput("deltaTableFractal")
       ),
       tabPanel("About",
         p('This application demonstrates to what extent',

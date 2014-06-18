@@ -91,6 +91,12 @@ EPS <- 10^(-8)
     }
   }
 
+ fractal.W1 <- function(tau, f, K, a, phi){
+   y <- (log(f/K)-0.5*a*a*tau)/a
+   result <- K*a*tau*.N1(y/sqrt(tau))*(0.5*sqrt(tau)*(phi + (0.5*a^2) )-(2/3)*a )
+   return(result)
+ }
+
 SABR.W1 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
   return(0.5*rho*a*K*tau*(.N2(y/sqrt(tau))))
@@ -106,6 +112,27 @@ SABR.W2 <- function(tau, f, K, a, rho){
   result2 <- result2 - (1/4) * tau^(3/2) * .N3(y/sqrt(tau))
   result2 <- 0.5 * rho * rho * a * K * result2
   return(result1 + result2)
+}
+
+fractal.W <- function(tau, f, K, h, a, phi){
+  return(.Black(tau, f, K, a) + h * fractal.W1(tau, f, K, a, phi) )
+}
+
+fractal.Delta <- function(tau, f, K, h, a, phi)
+{ result <- fractal.W(tau, f + EPS, K, h, a, phi)
+  result <- result - fractal.W(tau, f, K, h, a, phi)
+  result <- result/EPS
+  return(result)
+}
+
+fractal.iv <- function(tau, f, K, h, a, phi, minSigma, maxSigma){
+  Nquotes <-length(K)
+  W <- fractal.W(tau, f, K, h, a, phi)
+  iv <- c()
+  for (i in 1:Nquotes){
+    iv[i] <- .ImpliedVolatilityNewton(tau, f , K[i] , W[i] , 10 , a , minSigma, maxSigma)
+  }    
+  return(iv)
 }
 
 # Expansion with error O(nu^3)
@@ -135,12 +162,12 @@ SABR.iv <- function(tau, f, K, nu, a, rho, minSigma, maxSigma){
 .t2inv <- function(r){ log( - r/( 1.0 + r) ) }
 
 # Parameter calibration function for SABR
-SABR.calibration <- function(tau, f, K, iv , r , parameter0)
+SABR.calibration <- function(tau, f, K, iv, parameter0)
 {
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
-  objective <- function(x){return( (sum(iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) ))^2 ) }
+  objective <- function(x){return( sum( (iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) ) }
   x <- optim(c(log(parameter0$nu), log(parameter0$alpha), .t2inv(parameter0$rho)), objective, list(maxit = 100000))
   
   # return the optimized parameters
@@ -150,6 +177,21 @@ SABR.calibration <- function(tau, f, K, iv , r , parameter0)
   return(parameter)
 }
 
+# Parameter calibration function for multifractal model
+fractal.calibration <- function(tau, f, K, iv , parameter0)
+{
+  # objective function for optimization
+  # variables are transformed because of satisfing the constraint conditions
+  
+  objective <- function(x){return( sum( (iv - fractal.iv(tau, f, K, x[1], exp(x[2]), exp(x[3]) ) )^2 ) ) }
+  x <- optim(c(parameter0$h, log(parameter0$alpha), log(parameter0$phi)), objective, list(maxit = 100000))
+  
+  # return the optimized parameters
+  parameter <- x$par
+  parameter <- c(parameter[1], exp(parameter[2]), exp(parameter[3]))
+  names(parameter) <- c("h", "alpha", "phi" )
+  return(parameter)
+}
 
 # Black-Scholes IV apporoximation formula by Hagan(2002)
 Hagan.IV <- function(t, f, K, a, b, r, n)
