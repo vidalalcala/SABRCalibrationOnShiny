@@ -35,11 +35,11 @@ EPS <- 10^(-8)
   # check price
   if ( WMarket > f ){
     cat("<ImpliedVolatilityNewton> The call price is out of no hedge bounds, strike =", K,"\n")
-    return(sigmaMax)
+    return(maxSigma)
   }
   if ( WMarket < ifelse(f-K>0, f-K, 0) ){
     cat("<ImpliedVolatilityNewton> The call price is out of no hedge bounds, strike =", K,"\n")
-    return(sigmaMin)
+    return(minSigma)
   }
   
   sigma <- sigma0;
@@ -91,43 +91,51 @@ EPS <- 10^(-8)
     }
   }
 
- fractal.W1 <- function(tau, f, K, a, phi){
-   y <- (log(f/K)-0.5*a*a*tau)/a
-   result <- K*a*tau*.N1(y/sqrt(tau))*(0.5*sqrt(tau)*(phi + (0.5*a^2) )-(2/3)*a )
-   return(result)
- }
-
 SABR.W1 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
   return(0.5*rho*a*K*tau*(.N2(y/sqrt(tau))))
 }
 SABR.W2 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
-  result1 <- -(1/3) * a * (tau^(2) * .N2(y/sqrt(tau)))
+  result1 <- (1/3) * a * (tau^(2) * .N2(y/sqrt(tau)))
   result1 <- result1 + (1/3) * tau * y * .N2(y/sqrt(tau))
   result1 <- result1 - (1/6) * tau^(3/2) * .N1(y/sqrt(tau))
   result1 <- -0.5 * a * K * result1
-  result2 <- -(1/4) * a * (tau^(2) * .N4(y/sqrt(tau)))
+  result2 <- (1/4) * a * (tau^(2) * .N4(y/sqrt(tau)))
   result2 <- result2 + (1/4) * tau * y * .N4(y/sqrt(tau))
   result2 <- result2 - (1/4) * tau^(3/2) * .N3(y/sqrt(tau))
-  result2 <- 0.5 * rho * rho * a * K * result2
+  result2 <- -0.5 * rho * rho * a * K * result2
   return(result1 + result2)
 }
 
-fractal.W <- function(tau, f, K, h, a, phi){
-  return(.Black(tau, f, K, a) + h * fractal.W1(tau, f, K, a, phi) )
+fractal.W1 <- function(tau, f, K, a, phi, sig){
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  result <- K*a*tau*.N1(y/sqrt(tau))*( 0.5*sqrt(tau)*( (-phi)*log(a/sig)+(0.5*a^2)*(1/sig) )-(a/sig)*(2/3) )
+  return(result)
 }
 
-fractal.Delta <- function(tau, f, K, h, a, phi)
-{ result <- fractal.W(tau, f + EPS, K, h, a, phi)
-  result <- result - fractal.W(tau, f, K, h, a, phi)
+fractal.W2 <- function(tau, f, K, a, phi, sig){
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  result <- (-1/sig)*a^2*K*( (-phi)*log(a/sig)+ (-phi) + ((3/2)*a^2)*(1/sig) )*((tau)^(-3/2))*(-y)*.N1(y/sqrt(tau))*((tau)^3)*(1/6) + 1/sig*a^3*K*4/(3*sig)*((tau)^(-3/2))*(-y)*.N1(y/sqrt(tau))*((2/5)*(tau)^(5/2)) +( (-phi)*a*log(a/sig) + (1/2*a^3)*1/sig)*K*((-phi)*log(a/sig)+(-phi)+(3/2*a^2)*1/sig)*((tau)^(-1/2))*.N1(y/sqrt(tau))*((tau)^3/6) -( (-phi)*a*log(a/sig) + (1/2*a^3)*1/sig )*K*4/(3*sig)*a*((tau)^(-1/2))*.N1(y/sqrt(tau))*((2/5)*(tau)^(5/2)) + 1/(2*sig^2)*a^3*K*((tau)^(-1/2))*.N1(y/sqrt(tau))*(((tau)^(-1))*((1/6)*tau^3) + (y^2)*(tau)/3) +1/(2*sig^2)*a^3*K*(1/sqrt(tau))*.N1(y/sqrt(tau))*((y^2)*(tau)+a*y*((tau)^2)/3-2*(y^2)*(tau)/2+(tau)^2/2)
+  return(result)
+}
+
+
+
+fractal.W <- function(tau, f, K, h, a, phi, sig){
+  return(.Black(tau, f, K, a) + h * fractal.W1(tau, f, K, a, phi, sig) + h^2 * fractal.W2(tau, f, K, a, phi, sig) )
+}
+
+fractal.Delta <- function(tau, f, K, h, a, phi, sig)
+{ result <- fractal.W(tau, f + EPS, K, h, a, phi, sig)
+  result <- result - fractal.W(tau, f, K, h, a, phi, sig)
   result <- result/EPS
   return(result)
 }
 
-fractal.iv <- function(tau, f, K, h, a, phi, minSigma, maxSigma){
+fractal.iv <- function(tau, f, K, h, a, phi, sig, minSigma, maxSigma){
   Nquotes <-length(K)
-  W <- fractal.W(tau, f, K, h, a, phi)
+  W <- fractal.W(tau, f, K, h, a, phi, sig)
   iv <- c()
   for (i in 1:Nquotes){
     iv[i] <- .ImpliedVolatilityNewton(tau, f , K[i] , W[i] , 10 , a , minSigma, maxSigma)
@@ -162,12 +170,12 @@ SABR.iv <- function(tau, f, K, nu, a, rho, minSigma, maxSigma){
 .t2inv <- function(r){ log( - r/( 1.0 + r) ) }
 
 # Parameter calibration function for SABR
-SABR.calibration <- function(tau, f, K, iv, parameter0)
+SABR.calibration <- function(tau, f, K, iv, parameter0, minSigma, maxSigma)
 {
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
-  objective <- function(x){return( sum( (iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3])) )^2 ) ) }
+  objective <- function(x){return( sum( (iv - SABR.iv(tau, f, K, exp(x[1]), exp(x[2]), .t2(x[3]), minSigma, maxSigma) )^2 ) ) }
   x <- optim(c(log(parameter0$nu), log(parameter0$alpha), .t2inv(parameter0$rho)), objective, list(maxit = 100000))
   
   # return the optimized parameters
@@ -178,18 +186,18 @@ SABR.calibration <- function(tau, f, K, iv, parameter0)
 }
 
 # Parameter calibration function for multifractal model
-fractal.calibration <- function(tau, f, K, iv , parameter0)
+fractal.calibration <- function(tau, f, K, iv , parameter0, minSigma, maxSigma)
 {
   # objective function for optimization
   # variables are transformed because of satisfing the constraint conditions
   
-  objective <- function(x){return( sum( (iv - fractal.iv(tau, f, K, x[1], exp(x[2]), exp(x[3]) ) )^2 ) ) }
-  x <- optim(c(parameter0$h, log(parameter0$alpha), log(parameter0$phi)), objective, list(maxit = 100000))
+  objective <- function(x){return( sum( (iv - fractal.iv(tau, f, K, x[1], exp(x[2]), exp(x[3]), exp(x[4]), minSigma, maxSigma) )^2 ) ) }
+  x <- optim(c(parameter0$h, log(parameter0$alpha), log(parameter0$phi), log(parameter0$sig)), objective, list(maxit = 1000000))
   
   # return the optimized parameters
   parameter <- x$par
-  parameter <- c(parameter[1], exp(parameter[2]), exp(parameter[3]))
-  names(parameter) <- c("h", "alpha", "phi" )
+  parameter <- c(parameter[1], exp(parameter[2]), exp(parameter[3]), exp(parameter[4]))
+  names(parameter) <- c("h", "alpha", "phi", "sigma" )
   return(parameter)
 }
 

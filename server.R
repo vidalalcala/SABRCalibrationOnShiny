@@ -100,7 +100,7 @@ shinyServer(function(input, output) {
     optionQuotesClean <- CleanSmile(optionQuotes, minVol, maxVol )
     strike <- optionQuotesClean$Strike
     price <- optionQuotesClean$Mid
-    parameter0 <- data.frame( nu=input$nu0, alpha=input$alpha0, rho=input$rho0, beta=input$beta0, h=input$h0, phi=input$phi0)
+    parameter0 <- data.frame( nu=input$nu0, alpha=input$alpha0, rho=input$rho0, beta=input$beta0, h=input$h0, phi=input$phi0, sig=input$sig0)
     
     #Calculate market implied vols
     Nquotes <-length(strike)
@@ -108,19 +108,19 @@ shinyServer(function(input, output) {
     for (i in 1:Nquotes){
       iv.market[i] <- .ImpliedVolatilityNewton( maturity, forward , strike[i], exp(r*maturity)*optionQuotesClean$Mid[i] , 10 , parameter0$alpha, minSigma, maxSigma)
     }
-    
+
     # calibrate models
     Hagan.parameter <- Hagan.calibration(maturity, forward, strike, iv.market, parameter0)
-    SABR.parameter <- SABR.calibration(maturity, forward, strike, iv.market, parameter0)
-    fractal.parameter <- fractal.calibration(maturity, forward, strike, iv.market, parameter0)
-    
+    SABR.parameter <- SABR.calibration(maturity, forward, strike, iv.market, parameter0, minSigma, maxSigma)
+    fractal.parameter <- fractal.calibration(maturity, forward, strike, iv.market, parameter0, minSigma, maxSigma)
+
     # calculate model implied vol
     IV.Hagan <- Hagan.IV(
       maturity, forward, strike, Hagan.parameter[2], Hagan.parameter[4] ,  Hagan.parameter[3], Hagan.parameter[1])
     IV.SABR <- SABR.iv(
       maturity, forward, strike, SABR.parameter[1], SABR.parameter[2], SABR.parameter[3], minSigma, maxSigma)
     IV.fractal <- fractal.iv(
-      maturity, forward, strike, fractal.parameter[1], fractal.parameter[2], fractal.parameter[3], minSigma, maxSigma)
+      maturity, forward, strike, fractal.parameter[1], fractal.parameter[2], fractal.parameter[3], fractal.parameter[4], minSigma, maxSigma)
     
     # calculate model hedge
     delta.Hagan <- Hagan.Delta(
@@ -128,7 +128,7 @@ shinyServer(function(input, output) {
     delta.SABR <- exp(-r*maturity)*SABR.Delta(
       maturity, forward, strike, SABR.parameter[1], SABR.parameter[2],  SABR.parameter[3])
     delta.fractal <- exp(-r*maturity)*fractal.Delta(
-      maturity, forward, strike, fractal.parameter[1], fractal.parameter[2],  fractal.parameter[3])
+      maturity, forward, strike, fractal.parameter[1], fractal.parameter[2],  fractal.parameter[3], fractal.parameter[4])
     
     # function output
     list(
@@ -149,7 +149,7 @@ shinyServer(function(input, output) {
       ),
       dataPlotFractalPrices=rbind(
         data.frame(Strike=strike, Price=optionQuotesClean$Mid, Tag="Market"),
-        data.frame(Strike=strike, Price=exp(-r*maturity)*fractal.W(maturity, forward, strike, fractal.parameter[1], fractal.parameter[2], fractal.parameter[3]), Tag="multifractal")
+        data.frame(Strike=strike, Price=exp(-r*maturity)*fractal.W(maturity, forward, strike, fractal.parameter[1], fractal.parameter[2], fractal.parameter[3], fractal.parameter[4]), Tag="multifractal")
       ),
       dataPlotHagan=rbind(
         data.frame(Strike=strike, IV=iv.market, Tag="Market"),
