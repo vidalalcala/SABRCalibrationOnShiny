@@ -4,14 +4,15 @@ library(data.table)
 source("SABR.R")
 
 # parametros
-strike <- seq(1, 200, 1)
+strike <- seq(50, 200, 1)
 vol <- seq(0.001, 10, 0.001)
 f <- 100.0
 maturity <- 1.0
 r <- 0.0015
-h <- 1.0
-alpha <- 2.4
-phi <- 0.5
+lambda <- 0.03;
+h <- lambda
+alpha <- 0.30
+phi <- 75
 sig <- 0.30
 minSigma <- 0.001
 maxSigma <- 100

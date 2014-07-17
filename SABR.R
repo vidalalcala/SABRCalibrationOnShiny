@@ -19,6 +19,8 @@ EPS <- 10^(-8)
 .N2 <- function(x){-x*dnorm(x)}
 .N3 <- function(x){(x^2-1)*dnorm(x)}
 .N4 <- function(x){(-x^3+3*x)*dnorm(x)}
+.N5 <- function(x){(x^4-6*x^2+3)*dnorm(x)}
+.N6 <- function(x){(-x^5 + 10*x^3-15*x)*dnorm(x)}
 
 #implied volatility
 
@@ -95,6 +97,7 @@ SABR.W1 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
   return(0.5*rho*a*K*tau*(.N2(y/sqrt(tau))))
 }
+
 SABR.W2 <- function(tau, f, K, a, rho){
   y <- (log(f/K)-0.5*a*a*tau)/a
   result1 <- (1/3) * a * (tau^(2) * .N2(y/sqrt(tau)))
@@ -106,6 +109,16 @@ SABR.W2 <- function(tau, f, K, a, rho){
   result2 <- result2 - (1/4) * tau^(3/2) * .N3(y/sqrt(tau))
   result2 <- -0.5 * rho * rho * a * K * result2
   return(result1 + result2)
+}
+
+SABR.W3 <- function(tau, f, K, a, rho){
+  y <- (log(f/K)-0.5*a*a*tau)/a
+  result <- (1/24) * (rho*K*a*tau^2) * .N2(y/sqrt(tau))
+  result <- result - (1/16) * rho*K*a*tau^(3/2) * ( y + (8/3)*a*tau ) * .N3(y/sqrt(tau))
+  result <- result + (1/12) * rho*K*a*tau*( ( y + a*tau )^2 + (1/4)*tau + (1/5)*rho^2 * tau ) * .N4(y/sqrt(tau))
+  result <- result - (1/60) * (rho^3)*K*a*tau^(3/2)* ( y + (5/2)*a*tau )*.N5(y/sqrt(tau))
+  result <- result + (1/48) * (rho^3)*K*a*tau * ( ( y + a*tau )^2 + (1/5)*tau )*.N6(y/sqrt(tau))
+  return(result)
 }
 
 fractal.W1 <- function(tau, f, K, a, phi, sig){
@@ -123,7 +136,7 @@ fractal.W2 <- function(tau, f, K, a, phi, sig){
 
 
 fractal.W <- function(tau, f, K, h, a, phi, sig){
-  return(.Black(tau, f, K, a) + h * fractal.W1(tau, f, K, a, phi, sig) + h^2 * fractal.W2(tau, f, K, a, phi, sig) )
+  return(.Black(tau, f, K, a) - h * fractal.W1(tau, f, K, a, phi, sig) - h^2 * fractal.W2(tau, f, K, a, phi, sig) )
 }
 
 fractal.Delta <- function(tau, f, K, h, a, phi, sig)
@@ -145,7 +158,7 @@ fractal.iv <- function(tau, f, K, h, a, phi, sig, minSigma, maxSigma){
 
 # Expansion with error O(nu^3)
 SABR.W <- function(tau, f, K, nu, a, rho){
-  return(.Black(tau, f, K, a) + nu * SABR.W1(tau, f, K, a, rho)  + nu*nu*SABR.W2(tau, f, K, a, rho)) 
+  return(.Black(tau, f, K, a)  + nu * SABR.W1(tau, f, K, a, rho)   + nu*nu*SABR.W2(tau, f, K, a, rho)  + nu*nu*nu*SABR.W3(tau, f, K, a, rho)) 
 }
 
 SABR.Delta <- function(t, f, K, nu, a, rho)

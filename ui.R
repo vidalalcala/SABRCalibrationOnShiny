@@ -16,7 +16,7 @@ shinyUI(pageWithSidebar(
     numericInput("minSigma", "Minimum volatility:", 0.001 , min=0.0, max=100.0, step=0.001),
     numericInput("maxSigma", "Maximum volatility:", 1.0 , min=0.0, max=100.0, step=0.0001),
     numericInput("h0", "Initial h (multifractal):", 0.0 , min=-10.0, max=10.0, step=0.001),
-    numericInput("phi0", "Initial phi (multifractal):", 1.0 , min=0.0, max=100000.0, step=0.01),
+    numericInput("phi0", "Initial phi (multifractal):", 75.0 , min=0.0, max=100000.0, step=0.01),
     numericInput("sig0", "Initial sigma (multifractal):", 0.25 , min=0.0, max=100.0, step=0.01)
   ),
   mainPanel(
