@@ -67,7 +67,7 @@ shinyUI(pageWithSidebar(
         ),br(),
         strong('References'),
         p(HTML('<ul>'),
-        HTML('<li>'),a('Managing Smile Risk, P. Hagan et al(pdf)', href="http://www.math.columbia.edu/~lrb/sabrAll.pdf", target="_blank"),HTML('</li>'),
+        HTML('<li>'),a('Managing Smile Risk, P. Hagan et al(pdf)', href="http://www.math.ku.dk/~rolf/SABR.pdf", target="_blank"),HTML('</li>'),
         HTML('</ul>'))
       )
     )
