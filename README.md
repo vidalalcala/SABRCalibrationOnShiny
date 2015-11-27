@@ -9,7 +9,7 @@ Souce code for this application at [GitHub](https://github.com/teramonagi/SABRCa
 If you want to run this code on your computer, run the code below:'
 
     library(shiny)
-    runGitHub("SABRCalibrationOnShiny","teramonagi")
+    runGitHub("SABRCalibrationOnShiny","vidalalcala")
 
 You can also check this application on the web.
 
